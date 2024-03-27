@@ -1,24 +1,86 @@
 import streamlit as st
-from sklearn.datasets import make_blobs
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics import silhouette_samples
 import numpy as np
 
-# Function to perform clustering
-def perform_clustering(num_samples):
-    # Generate sample data
-    X, _ = make_blobs(n_samples=num_samples, centers=3, random_state=42)
+# Function to generate sample data
+def generate_sample_data(num_samples):
+    np.random.seed(42)
+    centers = [[-1, -1], [0, 0], [1, 1]]
+    X = np.zeros((num_samples, 2))
+    labels = np.zeros(num_samples)
+    for i in range(num_samples):
+        center_idx = np.random.randint(len(centers))
+        X[i] = np.random.randn(2) + centers[center_idx]
+        labels[i] = center_idx
+    return X, labels
 
-    # Fit AGNES clustering model
-    agnes = AgglomerativeClustering(n_clusters=3)
-    labels = agnes.fit_predict(X)
+# Function to perform Agglomerative Clustering
+def agglomerative_clustering(X, n_clusters):
+    num_samples = X.shape[0]
+    distances = np.zeros((num_samples, num_samples))
+    for i in range(num_samples):
+        for j in range(num_samples):
+            distances[i, j] = np.linalg.norm(X[i] - X[j])
+    
+    clusters = [{i} for i in range(num_samples)]
+    while len(clusters) > n_clusters:
+        min_distance = np.inf
+        min_i = -1
+        min_j = -1
+        for i in range(len(clusters)):
+            for j in range(i + 1, len(clusters)):
+                distance = 0
+                for idx_i in clusters[i]:
+                    for idx_j in clusters[j]:
+                        distance += distances[idx_i, idx_j]
+                distance /= len(clusters[i]) * len(clusters[j])
+                if distance < min_distance:
+                    min_distance = distance
+                    min_i = i
+                    min_j = j
+        clusters[min_i] |= clusters[min_j]
+        del clusters[min_j]
+
+    labels = np.zeros(num_samples)
+    for idx, cluster in enumerate(clusters):
+        for i in cluster:
+            labels[i] = idx
+
+    return labels
+
+# Function to calculate silhouette coefficients
+def silhouette_coefficients(X, labels):
+    num_samples = X.shape[0]
+    silhouette_values = np.zeros(num_samples)
+    for i in range(num_samples):
+        a_i = 0
+        b_i = np.inf
+        for j in range(num_samples):
+            if labels[j] == labels[i] and j != i:
+                a_i += np.linalg.norm(X[i] - X[j])
+            elif labels[j] != labels[i]:
+                b_i = min(b_i, np.linalg.norm(X[i] - X[j]))
+        a_i /= max(1, np.sum(labels == labels[i]) - 1)
+        silhouette_values[i] = (b_i - a_i) / max(a_i, b_i)
+    return silhouette_values
+
+# Streamlit app
+def main():
+    st.title("AGNES Clustering without Predefined Modules")
+    num_samples = st.number_input("Enter the number of samples in the dataset:", min_value=10, max_value=1000, step=10, value=10)
+
+    # Generate sample data
+    X, true_labels = generate_sample_data(num_samples)
+
+    # Perform Agglomerative Clustering
+    n_clusters = 3
+    predicted_labels = agglomerative_clustering(X, n_clusters)
 
     # Display cluster assignments
     st.write("Cluster Assignments:")
-    st.write(labels)
+    st.write(predicted_labels)
 
-    # Calculate and print silhouette coefficient for each data point
-    silhouette_values = silhouette_samples(X, labels)
+    # Calculate and display silhouette coefficients
+    silhouette_values = silhouette_coefficients(X, predicted_labels)
     for i, s in enumerate(silhouette_values):
         st.write(f"Data point {i}: Silhouette coefficient = {s}")
         if s > 0:
@@ -28,12 +90,6 @@ def perform_clustering(num_samples):
         else:
             st.write("This data point may be assigned to the wrong cluster.")
         st.write()
-
-# Streamlit app
-def main():
-    st.title("AGNES Clustering with Streamlit")
-    num_samples = st.number_input("Enter the number of samples in the dataset:", min_value=10, max_value=1000, step=10, value=10)
-    perform_clustering(num_samples)
 
 if __name__ == "__main__":
     main()
