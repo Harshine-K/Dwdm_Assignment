@@ -1,5 +1,7 @@
 import streamlit as st
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 # Function to generate sample data
 def generate_sample_data(num_samples):
@@ -90,6 +92,19 @@ def main():
         else:
             st.write("This data point may be assigned to the wrong cluster.")
         st.write()
+
+    # Plot the clusters
+    unique_labels = np.unique(predicted_labels)
+    colors = ListedColormap(['r', 'g', 'b'])
+    plt.figure(figsize=(8, 6))
+    for label in unique_labels:
+        cluster_points = X[predicted_labels == label]
+        plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=[colors(label)], label=f'Cluster {int(label)}')
+    plt.title('AGNES Clustering')
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.legend()
+    st.pyplot(plt)
 
 if __name__ == "__main__":
     main()
